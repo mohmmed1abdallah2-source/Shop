@@ -4,6 +4,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
 import 'src/application/catalog_use_cases.dart';
+import 'src/domain/catalog_repository.dart';
 import 'src/features/auth_users/session_routes.dart';
 import 'src/features/catalog/catalog_routes.dart';
 import 'src/features/health_config/routes.dart';
@@ -14,9 +15,9 @@ import 'src/infrastructure/postgres_session_repository.dart';
 import 'src/shared/auth_middleware.dart';
 import 'src/shared/http_helpers.dart';
 
-/// Composes the API from public routes and authenticated application routes.
+/// Composes public and authenticated API routes with explicit adapters.
 Future<Handler> buildHandler({Pool? pool, FirebaseTokenVerifier? verifier}) async {
-  final catalog = pool == null ? InMemoryCatalogRepository() : PostgresCatalogRepository(pool);
+  final CatalogRepository catalog = pool == null ? InMemoryCatalogRepository() : PostgresCatalogRepository(pool);
   final publicRoutes = HealthConfigRoutes().router;
   final secureRoutes = Router();
   secureRoutes.mount('/v1/auth/', SessionRoutes(pool == null ? _NoSessionRepository() : PostgresSessionRepository(pool)).router.call);
@@ -26,12 +27,14 @@ Future<Handler> buildHandler({Pool? pool, FirebaseTokenVerifier? verifier}) asyn
   return const Pipeline().addMiddleware(_cors()).addMiddleware(requestContext()).addMiddleware(logRequests()).addHandler(cascade);
 }
 
+/// Builds a Firebase verifier from deployment configuration.
 FirebaseTokenVerifier _configuredVerifier() {
   final projectId = Platform.environment['FIREBASE_PROJECT_ID'];
   if (projectId == null || projectId.isEmpty) return const RejectUnconfiguredFirebaseVerifier();
   return GoogleFirebaseTokenVerifier(projectId: projectId);
 }
 
+/// Handles browser preflight requests and attaches CORS response headers.
 Middleware _cors() => (inner) => (request) async {
   const headers = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Id, Idempotency-Key, X-Branch-Id', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'};
   if (request.method == 'OPTIONS') return Response.ok('', headers: headers);
@@ -39,14 +42,14 @@ Middleware _cors() => (inner) => (request) async {
   return response.change(headers: {...headers, ...response.headers});
 };
 
-/// Session repository used when no database is configured; it denies all sessions.
+/// Session repository used when no PostgreSQL connection is configured.
 class _NoSessionRepository implements SessionRepository {
-  /// Denies all unprovisioned sessions.
+  /// Denies all sessions when database-backed user provisioning is unavailable.
   @override
   Future<Map<String, Object?>?> resolve(String firebaseUid) async => null;
 }
 
-/// Starts the HTTP server using environment-provided infrastructure.
+/// Starts the HTTP server using DATABASE_URL, FIREBASE_PROJECT_ID and PORT.
 Future<void> startServer() async {
   final databaseUrl = Platform.environment['DATABASE_URL'];
   final pool = databaseUrl == null || databaseUrl.isEmpty ? null : Pool.withUrl(databaseUrl);
