@@ -14,10 +14,10 @@ class SessionRoutes {
   const SessionRoutes(this.repository);
   /// Session repository.
   final SessionRepository repository;
-  /// Builds the route.
+  /// Builds the route mounted under /v1/auth/.
   Router get router {
     final r = Router();
-    r.post('/v1/auth/session', _create);
+    r.post('/session', _create);
     return r;
   }
   Future<Response> _create(Request request) async {
