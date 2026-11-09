@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
-import 'screens/products_multi_unit_screen.dart';
+import 'package:provider/provider.dart';
+import 'data/local_cache_and_sync_queue.dart';
+import 'providers/auth_and_catalog_provider.dart';
+import 'screens/app_shell_screen.dart';
 import 'theme/enterprise_dark_theme.dart';
-import 'widgets/responsive_and_shared_widgets.dart';
 
-/// Launches the Flutter app.
-void main() => runApp(const ShopApp());
+/// Initializes local storage and starts the Flutter application.
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final cache = LocalCacheAndSyncQueue();
+  await cache.initialize();
+  runApp(ShopApp(cache: cache));
+}
 
-/// Root Flutter application.
+/// Root application widget.
 class ShopApp extends StatelessWidget {
-  /// Creates the root app.
-  const ShopApp({super.key});
+  /// Creates the application.
+  const ShopApp({super.key, required this.cache});
+  /// Local cache and synchronization queue.
+  final LocalCacheAndSyncQueue cache;
   @override
-  Widget build(BuildContext context) => MaterialApp(debugShowCheckedModeBanner: false, theme: EnterpriseDarkTheme.build(), builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!), home: const ResponsiveShell(title: 'إدارة المتجر', body: ProductsMultiUnitScreen()));
+  Widget build(BuildContext context) => ChangeNotifierProvider(create: (_) => AuthAndCatalogProvider(cache), child: MaterialApp(debugShowCheckedModeBanner: false, theme: EnterpriseDarkTheme.build(), builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!), home: const AppShellScreen()));
 }
