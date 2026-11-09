@@ -18,6 +18,8 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   final ApiClient api;
   /// Provisioned application session returned by the server.
   Map<String, dynamic>? session;
+  /// Products currently visible in the catalog.
+  List<ProductDto> products = [];
   /// Whether server connectivity is currently available.
   bool connected = false;
   /// Whether authentication is in progress.
@@ -29,21 +31,22 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   /// Active branch UUID from the verified server session.
   String? get branchId => session?['branchId'] as String?;
 
-  /// Restores a prior Firebase session and replays pending local operations.
+  /// Restores Firebase session, loads products and replays pending local operations.
   Future<void> restoreSession() async {
     final token = await auth.getIdToken();
-    if (token == null) return;
+    if (token == null) { products = await cache.listProducts(); return; }
     try {
       final response = await api.send('POST', '/v1/auth/session');
       session = response['data'] as Map<String, dynamic>;
       connected = true;
       await syncPendingOperations();
-    } catch (_) { connected = false; }
+      await loadProducts();
+    } catch (_) { connected = false; products = await cache.listProducts(); }
     await refreshQueue();
     notifyListeners();
   }
 
-  /// Authenticates with Firebase and loads provisioned branch permissions.
+  /// Authenticates with Firebase and loads branch permissions and catalog.
   Future<bool> signIn(String email, String password) async {
     busy = true;
     errorMessage = null;
@@ -54,6 +57,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       session = response['data'] as Map<String, dynamic>;
       connected = true;
       await syncPendingOperations();
+      await loadProducts();
       await refreshQueue();
       return true;
     } on FirebaseAuthException catch (error) {
@@ -89,6 +93,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
     if (branch == null) throw StateError('لا توجد جلسة مرتبطة بفرع.');
     final operationId = const Uuid().v4();
     await cache.saveProductAndQueue(product, operationId);
+    products = [...products.where((p) => p.id != product.id), product];
     await refreshQueue();
     try {
       await api.send('POST', '/v1/catalog/products', body: product.toJson(), idempotencyKey: operationId, extraHeaders: {'X-Branch-Id': branch});
@@ -104,6 +109,21 @@ class AuthAndCatalogProvider extends ChangeNotifier {
     }
   }
 
+  /// Loads the current branch catalog from the API, retaining local data on failure.
+  Future<void> loadProducts() async {
+    final branch = branchId;
+    if (branch == null) return;
+    try {
+      final response = await api.send('GET', '/v1/catalog/products?limit=100', extraHeaders: {'X-Branch-Id': branch});
+      products = (response['data'] as List<dynamic>).map((item) => ProductDto.fromJson(item as Map<String, dynamic>)).toList();
+      connected = true;
+    } catch (_) {
+      connected = false;
+      if (products.isEmpty) products = await cache.listProducts();
+    }
+    notifyListeners();
+  }
+
   /// Replays queued product writes with their original idempotency keys.
   Future<void> syncPendingOperations() async {
     final branch = branchId;
@@ -116,10 +136,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
         final product = ProductDto.fromJson(payload);
         await api.send('POST', '/v1/catalog/products', body: product.toJson(), idempotencyKey: id, extraHeaders: {'X-Branch-Id': branch});
         await cache.markSynced(id, product.id);
-      } catch (_) {
-        connected = false;
-        break;
-      }
+      } catch (_) { connected = false; break; }
     }
     await refreshQueue();
     notifyListeners();
