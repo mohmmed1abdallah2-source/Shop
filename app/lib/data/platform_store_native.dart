@@ -21,6 +21,8 @@ class PlatformStore {
     await txn.insert('products', {'id': id, 'payload': payload, 'sync_state': 'PENDING'}, conflictAlgorithm: ConflictAlgorithm.replace);
     await txn.insert('sync_queue', {'id': operationId, 'operation': 'UPSERT_PRODUCT', 'payload': payload, 'state': 'PENDING', 'created_at': createdAt}, conflictAlgorithm: ConflictAlgorithm.abort);
   });
+  /// Returns pending operations ordered by creation time.
+  Future<List<Map<String, Object?>>> pendingOperations() async => (await _database!.query('sync_queue', where: 'state = ?', whereArgs: ['PENDING'], orderBy: 'created_at ASC', limit: 100)).map((row) => Map<String, Object?>.from(row)).toList();
   /// Marks a product and queue operation synchronized.
   Future<void> markSynced(String operationId, String productId) async => _database!.transaction((txn) async {
     await txn.update('sync_queue', {'state': 'SYNCED'}, where: 'id = ?', whereArgs: [operationId]);
