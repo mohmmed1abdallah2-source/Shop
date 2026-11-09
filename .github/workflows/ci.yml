@@ -1,4 +1,4 @@
-name: Shop ERP CI
+name: Shop ERP — Iteration 1 CI
 on:
   pull_request:
     branches: [main]
@@ -7,6 +7,7 @@ on:
       - 'server/**'
       - 'packages/**'
       - '.github/workflows/ci.yml'
+  workflow_dispatch:
 jobs:
   server:
     runs-on: ubuntu-latest
@@ -15,19 +16,70 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
-      - run: cd packages/core_contracts && dart pub get
-      - run: cd server && dart pub get
-      - run: cd server && dart analyze
-      - run: cd server && dart test
-  flutter:
+      - name: Resolve shared contracts
+        run: cd packages/core_contracts && dart pub get
+      - name: Resolve server packages
+        run: cd server && dart pub get
+      - name: Analyze server
+        run: cd server && dart analyze
+      - name: Test server
+        run: cd server && dart test
+  android_web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - run: cd app && flutter pub get
-      - run: cd app && flutter analyze
-      - run: cd app && flutter test
-      - run: cd app && flutter build apk --debug
-      - run: cd app && flutter build web
+      - name: Generate Android and Web platform runners
+        working-directory: app
+        run: flutter create --platforms=android,web --project-name shop_app .
+      - name: Resolve Flutter packages
+        working-directory: app
+        run: flutter pub get
+      - name: Analyze Flutter app
+        working-directory: app
+        run: flutter analyze
+      - name: Run widget and unit tests
+        working-directory: app
+        run: flutter test
+      - name: Build Android release APK
+        working-directory: app
+        run: flutter build apk --release
+      - name: Build Flutter Web release
+        working-directory: app
+        run: flutter build web --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shop-android-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shop-web-release
+          path: app/build/web/
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate Windows platform runner
+        working-directory: app
+        run: flutter create --platforms=windows --project-name shop_app .
+      - name: Resolve Flutter packages
+        working-directory: app
+        run: flutter pub get
+      - name: Analyze Flutter app
+        working-directory: app
+        run: flutter analyze
+      - name: Build Windows release
+        working-directory: app
+        run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shop-windows-release
+          path: app/build/windows/x64/runner/Release/
+          if-no-files-found: error
