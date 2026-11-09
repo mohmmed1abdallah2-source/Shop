@@ -1,0 +1,33 @@
+name: Shop ERP CI
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'server/**'
+      - 'packages/**'
+      - '.github/workflows/ci.yml'
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: cd packages/core_contracts && dart pub get
+      - run: cd server && dart pub get
+      - run: cd server && dart analyze
+      - run: cd server && dart test
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: cd app && flutter pub get
+      - run: cd app && flutter analyze
+      - run: cd app && flutter test
+      - run: cd app && flutter build apk --debug
+      - run: cd app && flutter build web
