@@ -46,7 +46,8 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       if (rawSession != null) {
         final cached = jsonDecode(rawSession) as Map<String, dynamic>;
         final cachedAt = DateTime.tryParse(cached['cachedAt'] as String? ?? '');
-        if (cachedAt != null && DateTime.now().difference(cachedAt) <= const Duration(days: 7)) {
+        final cacheAge = cachedAt == null ? null : DateTime.now().difference(cachedAt);
+        if (cacheAge != null && cacheAge >= Duration.zero && cacheAge <= const Duration(days: 7)) {
           session = cached['session'] as Map<String, dynamic>;
         } else {
           await _secureStorage.delete(key: _sessionKey);
