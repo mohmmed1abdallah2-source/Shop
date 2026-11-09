@@ -32,10 +32,10 @@ class PlatformStore {
   }
   /// Returns pending operations ordered by creation time.
   Future<List<Map<String, Object?>>> pendingOperations() async => (await _database!.query('sync_queue', where: 'state = ?', whereArgs: ['PENDING'], orderBy: 'created_at ASC', limit: 100)).map((row) => Map<String, Object?>.from(row)).toList();
-  /// Marks a product and queue operation synchronized.
+  /// Marks a product synchronized and removes its completed queue row.
   Future<void> markSynced(String operationId, String productId) async => _database!.transaction((txn) async {
-    await txn.update('sync_queue', {'state': 'SYNCED'}, where: 'id = ?', whereArgs: [operationId]);
     await txn.update('products', {'sync_state': 'SYNCED'}, where: 'id = ?', whereArgs: [productId]);
+    await txn.delete('sync_queue', where: 'id = ?', whereArgs: [operationId]);
   });
   /// Counts pending queue entries.
   Future<int> get pendingCount async => Sqflite.firstIntValue(await _database!.rawQuery("SELECT COUNT(*) FROM sync_queue WHERE state='PENDING'")) ?? 0;
