@@ -6,6 +6,12 @@ class IdempotencyConflict implements Exception {
   const IdempotencyConflict();
 }
 
+/// Domain conflict raised when a barcode is already assigned to another product.
+class DuplicateBarcode implements Exception {
+  /// Creates a duplicate barcode conflict.
+  const DuplicateBarcode();
+}
+
 /// Domain port for catalog persistence.
 abstract interface class CatalogRepository {
   /// Saves a product scoped to a branch with idempotency.
