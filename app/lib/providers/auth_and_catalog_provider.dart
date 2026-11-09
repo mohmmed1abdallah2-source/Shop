@@ -33,6 +33,8 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   int pending = 0;
   /// Active branch UUID from the verified or securely cached session.
   String? get branchId => session?['branchId'] as String?;
+  /// Checks a permission in the active server-issued or cached session.
+  bool hasPermission(String code) => session?['permissions'] is List && (session!['permissions'] as List).contains(code);
 
   /// Restores a recent secure offline session and attempts server revalidation.
   Future<void> restoreSession() async {
