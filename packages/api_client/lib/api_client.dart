@@ -37,6 +37,7 @@ class ApiClient {
         final decoded = jsonDecode(response.body);
         if (response.statusCode < 200 || response.statusCode >= 300) throw ApiClientException(response.statusCode, decoded is Map<String, dynamic> ? decoded : {'body': response.body});
         if (decoded is! Map<String, dynamic>) throw const FormatException('Expected JSON object.');
+        decoded['_etag'] = response.headers['etag'];
         return decoded;
       } on TimeoutException { if (attempt >= maxRetries) rethrow; await Future<void>.delayed(Duration(milliseconds: 250 * (1 << attempt))); }
       on http.ClientException { if (attempt >= maxRetries) rethrow; await Future<void>.delayed(Duration(milliseconds: 250 * (1 << attempt))); }
