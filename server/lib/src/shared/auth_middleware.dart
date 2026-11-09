@@ -19,9 +19,13 @@ abstract interface class FirebaseTokenVerifier {
 Middleware firebaseAuth(FirebaseTokenVerifier verifier) => (inner) => (request) async {
   final header = request.headers['authorization'];
   if (header == null || !header.startsWith('Bearer ')) return failure(request, 401, 'UNAUTHENTICATED', 'يلزم تسجيل الدخول.');
-  final identity = await verifier.verify(header.substring(7));
-  if (identity == null) return failure(request, 401, 'INVALID_TOKEN', 'رمز الدخول غير صالح.');
-  return inner(request.change(context: {...request.context, 'firebaseUid': identity.uid}));
+  try {
+    final identity = await verifier.verify(header.substring(7));
+    if (identity == null) return failure(request, 401, 'INVALID_TOKEN', 'رمز الدخول غير صالح.');
+    return inner(request.change(context: {...request.context, 'firebaseUid': identity.uid}));
+  } catch (_) {
+    return failure(request, 503, 'AUTH_VERIFICATION_UNAVAILABLE', 'تعذر التحقق من جلسة الدخول حالياً.');
+  }
 };
 
 /// Fail-closed default until a production Firebase verifier is configured.
