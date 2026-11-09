@@ -15,6 +15,8 @@ class PlatformStore {
     await _preferences!.setString('shop.products', jsonEncode(products));
     await _preferences!.setString('shop.sync_queue', jsonEncode(queue));
   }
+  /// Returns pending operations ordered by creation time.
+  Future<List<Map<String, Object?>>> pendingOperations() async => _read('shop.sync_queue').entries.where((e) => e.value is Map && (e.value as Map)['state'] == 'PENDING').map((e) => <String, Object?>{'id': e.key, ...Map<String, Object?>.from(e.value as Map)}).toList()..sort((a,b) => (a['created_at'] as String).compareTo(b['created_at'] as String));
   /// Marks a queue item as synchronized and updates product state.
   Future<void> markSynced(String operationId, String productId) async {
     final products = _read('shop.products');
@@ -25,7 +27,7 @@ class PlatformStore {
     await _preferences!.setString('shop.sync_queue', jsonEncode(queue));
   }
   /// Counts pending browser queue entries.
-  Future<int> get pendingCount async => _read('shop.sync_queue').values.where((e) => e is Map && e['state'] == 'PENDING').length;
+  Future<int> get pendingCount async => (await pendingOperations()).length;
   Map<String, dynamic> _read(String key) {
     final raw = _preferences?.getString(key);
     if (raw == null || raw.isEmpty) return {};
