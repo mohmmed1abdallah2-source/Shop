@@ -5,7 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../providers/auth_and_catalog_provider.dart';
 import '../widgets/responsive_and_shared_widgets.dart';
 
-/// Responsive multi-unit catalog entry screen.
+/// Responsive multi-unit catalog entry and search screen.
 class ProductsMultiUnitScreen extends StatefulWidget {
   /// Creates the catalog screen.
   const ProductsMultiUnitScreen({super.key});
@@ -24,6 +24,7 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
   @override
   void dispose() { _name.dispose(); _sku.dispose(); _barcode.dispose(); _price.dispose(); _search.dispose(); super.dispose(); }
 
+  /// Validates the form and saves a local-first product.
   Future<void> _save(BuildContext sheetContext) async {
     final price = double.tryParse(_price.text.trim());
     if (_name.text.trim().isEmpty || _sku.text.trim().isEmpty || _barcode.text.trim().isEmpty || price == null || price < 0) {
@@ -41,10 +42,23 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(synced ? 'تم حفظ المنتج ومزامنته مع الخادم.' : 'تم حفظ المنتج محلياً وسيبقى في قائمة المزامنة.')));
   }
 
+  /// Builds the catalog list using cards on mobile and a table on wide screens.
+  Widget _productList(AuthAndCatalogProvider state, bool wide) {
+    final query = _search.text.trim().toLowerCase();
+    final rows = state.products.where((p) => query.isEmpty || p.name.toLowerCase().contains(query) || p.sku.toLowerCase().contains(query) || p.units.any((u) => u.barcode.toLowerCase().contains(query))).toList();
+    if (rows.isEmpty) return const Center(child: Text('لا توجد منتجات مطابقة للبحث.'));
+    if (wide) return SingleChildScrollView(child: DataTable(columns: const [DataColumn(label: Text('المنتج')), DataColumn(label: Text('الرمز')), DataColumn(label: Text('النوع')), DataColumn(label: Text('الوحدة')), DataColumn(label: Text('الباركود')), DataColumn(label: Text('السعر'))], rows: rows.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text(p.sku)), DataCell(Text(p.kind == 'weighted' ? 'موزون' : 'عددي')), DataCell(Text(p.units.first.unitName)), DataCell(Text(p.units.first.barcode)), DataCell(Text(p.units.first.retailPrice.toString()))])).toList()));
+    return ListView.builder(itemCount: rows.length, itemBuilder: (context, index) {
+      final product = rows[index];
+      return SmartExpandableCard(title: product.name, subtitle: product.sku, details: [Text('النوع: ' + (product.kind == 'weighted' ? 'موزون' : 'عددي')), ...product.units.map((unit) => Text(unit.unitName + ' — ' + unit.barcode + ' — ' + unit.retailPrice.toString()))]);
+    });
+  }
+
   @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-    TextField(controller: _search, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'بحث بالاسم أو الرمز أو الباركود')),
-    const Expanded(child: Center(child: Text('ابحث عن منتج أو أضف منتجاً جديداً.'))),
+  Widget build(BuildContext context) => Consumer<AuthAndCatalogProvider>(builder: (context, state, child) => Padding(padding: const EdgeInsets.all(16), child: Column(children: [
+    TextField(controller: _search, onChanged: (_) => setState(() {}), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'بحث بالاسم أو الرمز أو الباركود')),
+    const SizedBox(height: 12),
+    Expanded(child: _productList(state, MediaQuery.sizeOf(context).width >= 900)),
     FilledButton.icon(onPressed: () => KeyboardSafeModalSheet.show<void>(context, (ctx) => Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Text('إضافة منتج', style: Theme.of(ctx).textTheme.titleLarge),
       TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم المنتج')),
@@ -56,5 +70,5 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
       const SizedBox(height: 12),
       SizedBox(width: double.infinity, child: FilledButton(onPressed: () => _save(ctx), child: const Text('حفظ المنتج'))),
     ]))), icon: const Icon(Icons.add), label: const Text('إضافة منتج')),
-  ]));
+  ])));
 }
