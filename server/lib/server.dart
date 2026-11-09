@@ -37,9 +37,14 @@ FirebaseTokenVerifier _configuredVerifier() {
   return GoogleFirebaseTokenVerifier(projectId: projectId);
 }
 
-/// Handles browser preflight requests and attaches CORS response headers.
+/// Applies an explicit browser origin allow-list from CORS_ALLOWED_ORIGINS.
 Middleware _cors() => (inner) => (request) async {
-  const headers = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Id, Idempotency-Key, X-Branch-Id', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'};
+  final configured = (Platform.environment['CORS_ALLOWED_ORIGINS'] ?? '').split(',').map((value) => value.trim()).where((value) => value.isNotEmpty).toSet();
+  final origin = request.headers['origin'];
+  final originAllowed = origin == null || configured.contains('*') || configured.contains(origin);
+  if (!originAllowed) return Response.forbidden('Origin is not allowed.');
+  final headers = <String, String>{'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Id, Idempotency-Key, X-Branch-Id', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Vary': 'Origin'};
+  if (origin != null) headers['Access-Control-Allow-Origin'] = configured.contains('*') ? '*' : origin;
   if (request.method == 'OPTIONS') return Response.ok('', headers: headers);
   final response = await inner(request);
   return response.change(headers: {...headers, ...response.headers});
@@ -59,7 +64,7 @@ class _NoPermissionRepository implements CatalogPermissionRepository {
   Future<bool> hasPermission(String firebaseUid, String branchId, String permissionCode) async => false;
 }
 
-/// Starts the HTTP server using DATABASE_URL, FIREBASE_PROJECT_ID and PORT.
+/// Starts the HTTP server using DATABASE_URL, FIREBASE_PROJECT_ID, CORS_ALLOWED_ORIGINS and PORT.
 Future<void> startServer() async {
   final databaseUrl = Platform.environment['DATABASE_URL'];
   final pool = databaseUrl == null || databaseUrl.isEmpty ? null : Pool.withUrl(databaseUrl);
