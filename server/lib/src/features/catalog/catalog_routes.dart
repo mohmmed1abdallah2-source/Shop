@@ -3,6 +3,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:core_contracts/core_contracts.dart';
 import '../../application/catalog_use_cases.dart';
+import '../../infrastructure/postgres_catalog_repository.dart';
 import '../../shared/http_helpers.dart';
 
 /// HTTP routes for catalog operations.
@@ -31,7 +32,8 @@ class CatalogRoutes {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final saved = await upsert.call(branch, ProductDto.fromJson(body), key);
       return success(request, saved.toJson(), status: 201);
-    } on ArgumentError catch (e) { return failure(request, 400, 'VALIDATION_ERROR', e.message.toString()); }
+    } on IdempotencyConflict { return failure(request, 409, 'IDEMPOTENCY_CONFLICT', 'مفتاح العملية مستخدم مع بيانات مختلفة.'); }
+    on ArgumentError catch (e) { return failure(request, 400, 'VALIDATION_ERROR', e.message.toString()); }
     catch (_) { return failure(request, 500, 'INTERNAL_ERROR', 'تعذر حفظ المنتج.'); }
   }
   Future<Response> _list(Request request) async {
