@@ -103,7 +103,8 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
     TextField(controller: _search, onChanged: (_) => setState(() {}), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'بحث بالاسم أو الرمز أو الباركود')),
     const SizedBox(height: 12),
     Expanded(child: _productList(state, MediaQuery.sizeOf(context).width >= 900)),
-    FilledButton.icon(onPressed: () => KeyboardSafeModalSheet.show<void>(context, (ctx) => StatefulBuilder(builder: (ctx, setSheetState) => Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
+    if (!state.hasPermission('catalog.write')) const Padding(padding: EdgeInsets.all(8), child: Text('صلاحية إضافة المنتجات غير متاحة لهذا الحساب.')),
+    if (state.hasPermission('catalog.write')) FilledButton.icon(onPressed: () => KeyboardSafeModalSheet.show<void>(context, (ctx) => StatefulBuilder(builder: (ctx, setSheetState) => Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Text('إضافة منتج', style: Theme.of(ctx).textTheme.titleLarge),
       TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم المنتج')),
       TextField(controller: _sku, decoration: const InputDecoration(labelText: 'رمز المنتج')),
