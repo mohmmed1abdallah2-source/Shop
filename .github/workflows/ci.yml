@@ -1,5 +1,7 @@
 name: Shop ERP — Iteration 1 CI
 on:
+  push:
+    branches: [feature/iteration-1-fullstack-erp]
   pull_request:
     branches: [main]
     paths:
