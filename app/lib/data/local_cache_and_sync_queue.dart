@@ -9,6 +9,8 @@ class LocalCacheAndSyncQueue {
   Future<void> initialize() => _store.initialize();
   /// Saves product locally and creates a durable pending operation.
   Future<void> saveProductAndQueue(ProductDto product, String operationId) => _store.saveProduct(product.id, jsonEncode(product.toJson()), operationId, DateTime.now().toUtc().toIso8601String());
+  /// Stores a server product in the local cache without queueing it.
+  Future<void> cacheProductSnapshot(ProductDto product) => _store.cacheProduct(product.id, jsonEncode(product.toJson()));
   /// Loads products from the local cache.
   Future<List<ProductDto>> listProducts() => _store.listProducts();
   /// Reads pending operations for retry.
