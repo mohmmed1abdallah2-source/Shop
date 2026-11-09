@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:core_contracts/core_contracts.dart';
 import '../domain/catalog_repository.dart';
 
@@ -5,11 +6,15 @@ import '../domain/catalog_repository.dart';
 class InMemoryCatalogRepository implements CatalogRepository {
   final Map<String, ProductDto> _items = {};
   final Map<String, ProductDto> _keys = {};
-  /// Saves and replays products for repeated idempotency keys.
+  /// Saves and replays products for matching idempotency keys.
   @override
   Future<ProductDto> upsert(String branch, ProductDto product, String key) async {
     final scoped = branch + ':' + key;
-    if (_keys.containsKey(scoped)) return _keys[scoped]!;
+    final prior = _keys[scoped];
+    if (prior != null) {
+      if (jsonEncode(prior.toJson()) != jsonEncode(product.toJson())) throw const IdempotencyConflict();
+      return prior;
+    }
     _items[branch + ':' + product.id] = product;
     _keys[scoped] = product;
     return product;
@@ -26,8 +31,8 @@ class InMemoryCatalogRepository implements CatalogRepository {
   @override
   Future<ProductDto?> lookup(String branch, String code) async {
     for (final entry in _items.entries.where((e) => e.key.startsWith(branch + ':'))) {
-      final p = entry.value;
-      if (p.scalePluCode == code || p.units.any((u) => u.barcode == code)) return p;
+      final product = entry.value;
+      if (product.scalePluCode == code || product.units.any((unit) => unit.barcode == code)) return product;
     }
     return null;
   }
