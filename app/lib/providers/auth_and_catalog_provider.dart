@@ -145,8 +145,16 @@ class AuthAndCatalogProvider extends ChangeNotifier {
     final branch = branchId;
     if (branch == null) return;
     try {
-      final response = await api.send('GET', '/v1/catalog/products?limit=100', extraHeaders: {'X-Branch-Id': branch});
-      products = (response['data'] as List<dynamic>).map((item) => ProductDto.fromJson(item as Map<String, dynamic>)).toList();
+      final loaded = <ProductDto>[];
+      String? cursor;
+      do {
+        final query = 'limit=100' + (cursor == null ? '' : '&cursor=' + Uri.encodeQueryComponent(cursor));
+        final response = await api.send('GET', '/v1/catalog/products?' + query, extraHeaders: {'X-Branch-Id': branch});
+        loaded.addAll((response['data'] as List<dynamic>).map((item) => ProductDto.fromJson(item as Map<String, dynamic>)));
+        final meta = response['meta'] as Map<String, dynamic>?;
+        cursor = meta?['nextCursor'] as String?;
+      } while (cursor != null && loaded.length < 10000);
+      products = loaded;
       await Future.wait(products.map(cache.cacheProductSnapshot));
       connected = true;
     } catch (_) {
