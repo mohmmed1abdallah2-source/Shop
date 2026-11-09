@@ -2,21 +2,24 @@ import 'dart:convert';
 import 'package:api_client/api_client.dart';
 import 'package:core_contracts/core_contracts.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 import '../auth/firebase_auth_adapter.dart';
 import '../data/local_cache_and_sync_queue.dart';
 
-/// Coordinates Firebase authentication, server session and local-first catalog writes.
+/// Coordinates Firebase authentication, cached offline session and catalog synchronization.
 class AuthAndCatalogProvider extends ChangeNotifier {
   /// Creates the application provider.
-  AuthAndCatalogProvider({required this.cache, required this.auth, required this.api});
+  AuthAndCatalogProvider({required this.cache, required this.auth, required this.api, FlutterSecureStorage? secureStorage}) : _secureStorage = secureStorage ?? const FlutterSecureStorage();
   /// Local cache and outgoing queue.
   final LocalCacheAndSyncQueue cache;
   /// Firebase Authentication adapter.
   final FirebaseAuthAdapter auth;
   /// Shared authenticated API client.
   final ApiClient api;
-  /// Provisioned application session returned by the server.
+  final FlutterSecureStorage _secureStorage;
+  static const _sessionKey = 'shop.application.session';
+  /// Provisioned application session returned by the server or securely cached for offline use.
   Map<String, dynamic>? session;
   /// Products currently visible in the catalog.
   List<ProductDto> products = [];
@@ -28,21 +31,33 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   String? errorMessage;
   /// Number of operations awaiting synchronization.
   int pending = 0;
-  /// Active branch UUID from the verified server session.
+  /// Active branch UUID from the verified or securely cached session.
   String? get branchId => session?['branchId'] as String?;
 
-  /// Restores Firebase session, local products and pending synchronization state.
+  /// Restores a recent secure offline session and attempts server revalidation.
   Future<void> restoreSession() async {
     try {
+      final rawSession = await _secureStorage.read(key: _sessionKey);
+      if (rawSession != null) {
+        final cached = jsonDecode(rawSession) as Map<String, dynamic>;
+        final cachedAt = DateTime.tryParse(cached['cachedAt'] as String? ?? '');
+        if (cachedAt != null && DateTime.now().difference(cachedAt) <= const Duration(days: 7)) {
+          session = cached['session'] as Map<String, dynamic>;
+        } else {
+          await _secureStorage.delete(key: _sessionKey);
+        }
+      }
+      products = await cache.listProducts();
       final token = await auth.getIdToken();
       if (token == null) {
-        products = await cache.listProducts();
+        connected = false;
         await refreshQueue();
         notifyListeners();
         return;
       }
       final response = await api.send('POST', '/v1/auth/session');
       session = response['data'] as Map<String, dynamic>;
+      await _persistSession();
       connected = true;
       await syncPendingOperations();
       await loadProducts();
@@ -63,6 +78,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       await auth.signIn(email, password);
       final response = await api.send('POST', '/v1/auth/session');
       session = response['data'] as Map<String, dynamic>;
+      await _persistSession();
       connected = true;
       await syncPendingOperations();
       await loadProducts();
@@ -70,15 +86,21 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       return true;
     } on FirebaseAuthException catch (error) {
       errorMessage = error.message;
+      session = null;
+      await _secureStorage.delete(key: _sessionKey);
       await auth.signOut();
       return false;
     } on ApiClientException catch (error) {
       final serverError = error.payload['error'];
       errorMessage = serverError is Map<String, dynamic> ? serverError['message'] as String? : 'تعذر إنشاء جلسة النظام.';
+      session = null;
+      await _secureStorage.delete(key: _sessionKey);
       await auth.signOut();
       return false;
     } catch (_) {
       errorMessage = 'تعذر الاتصال بالخادم أو إنشاء الجلسة.';
+      session = null;
+      await _secureStorage.delete(key: _sessionKey);
       await auth.signOut();
       return false;
     } finally {
@@ -87,9 +109,10 @@ class AuthAndCatalogProvider extends ChangeNotifier {
     }
   }
 
-  /// Signs out and clears the Firebase refresh token.
+  /// Signs out and removes both Firebase and application session tokens.
   Future<void> signOut() async {
     await auth.signOut();
+    await _secureStorage.delete(key: _sessionKey);
     session = null;
     connected = false;
     notifyListeners();
@@ -117,13 +140,14 @@ class AuthAndCatalogProvider extends ChangeNotifier {
     }
   }
 
-  /// Loads the branch catalog, retaining cached products when the API is unavailable.
+  /// Loads the branch catalog and caches each server product for offline reading.
   Future<void> loadProducts() async {
     final branch = branchId;
     if (branch == null) return;
     try {
       final response = await api.send('GET', '/v1/catalog/products?limit=100', extraHeaders: {'X-Branch-Id': branch});
       products = (response['data'] as List<dynamic>).map((item) => ProductDto.fromJson(item as Map<String, dynamic>)).toList();
+      await Future.wait(products.map(cache.cacheProductSnapshot));
       connected = true;
     } catch (_) {
       connected = false;
@@ -152,4 +176,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
 
   /// Refreshes the number of pending operations.
   Future<void> refreshQueue() async { pending = await cache.pendingCount; notifyListeners(); }
+
+  /// Stores the current server session with a bounded offline validity window.
+  Future<void> _persistSession() async => _secureStorage.write(key: _sessionKey, value: jsonEncode({'session': session, 'cachedAt': DateTime.now().toUtc().toIso8601String()}));
 }
