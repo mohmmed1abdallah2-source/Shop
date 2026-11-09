@@ -17,6 +17,7 @@ class InMemoryCatalogRepository implements CatalogRepository {
     }
     for (final entry in _items.entries) {
       if (entry.key != branch + ':' + product.id && entry.value.units.any((unit) => product.units.any((candidate) => candidate.barcode == unit.barcode))) throw const DuplicateBarcode();
+      if (entry.key != branch + ':' + product.id && product.scalePluCode != null && entry.value.scalePluCode == product.scalePluCode) throw const DuplicateScalePlu();
     }
     _items[branch + ':' + product.id] = product;
     _keys[scoped] = product;
