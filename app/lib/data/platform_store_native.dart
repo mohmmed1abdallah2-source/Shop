@@ -23,6 +23,8 @@ class PlatformStore {
     await txn.insert('products', {'id': id, 'payload': payload, 'sync_state': 'PENDING'}, conflictAlgorithm: ConflictAlgorithm.replace);
     await txn.insert('sync_queue', {'id': operationId, 'operation': 'UPSERT_PRODUCT', 'payload': payload, 'state': 'PENDING', 'created_at': createdAt}, conflictAlgorithm: ConflictAlgorithm.abort);
   });
+  /// Caches a server product without creating an outgoing operation.
+  Future<void> cacheProduct(String id, String payload) async => _database!.insert('products', {'id': id, 'payload': payload, 'sync_state': 'SYNCED'}, conflictAlgorithm: ConflictAlgorithm.replace);
   /// Loads all locally cached products.
   Future<List<ProductDto>> listProducts() async {
     final rows = await _database!.query('products', orderBy: 'id ASC');
