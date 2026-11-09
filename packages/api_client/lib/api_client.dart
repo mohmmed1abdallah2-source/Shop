@@ -33,6 +33,7 @@ class ApiClient {
         final stream = await _client.send(request).timeout(const Duration(seconds: 25));
         final response = await http.Response.fromStream(stream);
         if (response.statusCode >= 500 && attempt < maxRetries) { await Future<void>.delayed(Duration(milliseconds: 250 * (1 << attempt))); continue; }
+        if (response.statusCode == 304) return {'_notModified': true, '_etag': response.headers['etag']};
         final decoded = jsonDecode(response.body);
         if (response.statusCode < 200 || response.statusCode >= 300) throw ApiClientException(response.statusCode, decoded is Map<String, dynamic> ? decoded : {'body': response.body});
         if (decoded is! Map<String, dynamic>) throw const FormatException('Expected JSON object.');
