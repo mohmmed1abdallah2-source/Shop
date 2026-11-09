@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:api_client/api_client.dart';
 import 'package:core_contracts/core_contracts.dart';
 import 'package:flutter/foundation.dart';
@@ -28,7 +29,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   /// Active branch UUID from the verified server session.
   String? get branchId => session?['branchId'] as String?;
 
-  /// Restores a prior Firebase session and exchanges its token with the API.
+  /// Restores a prior Firebase session and replays pending local operations.
   Future<void> restoreSession() async {
     final token = await auth.getIdToken();
     if (token == null) return;
@@ -36,6 +37,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       final response = await api.send('POST', '/v1/auth/session');
       session = response['data'] as Map<String, dynamic>;
       connected = true;
+      await syncPendingOperations();
     } catch (_) { connected = false; }
     await refreshQueue();
     notifyListeners();
@@ -51,6 +53,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       final response = await api.send('POST', '/v1/auth/session');
       session = response['data'] as Map<String, dynamic>;
       connected = true;
+      await syncPendingOperations();
       await refreshQueue();
       return true;
     } on FirebaseAuthException catch (error) {
@@ -99,6 +102,27 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  /// Replays queued product writes with their original idempotency keys.
+  Future<void> syncPendingOperations() async {
+    final branch = branchId;
+    if (branch == null) return;
+    for (final operation in await cache.pendingOperations()) {
+      if (operation['operation'] != 'UPSERT_PRODUCT') continue;
+      try {
+        final id = operation['id'] as String;
+        final payload = jsonDecode(operation['payload'] as String) as Map<String, dynamic>;
+        final product = ProductDto.fromJson(payload);
+        await api.send('POST', '/v1/catalog/products', body: product.toJson(), idempotencyKey: id, extraHeaders: {'X-Branch-Id': branch});
+        await cache.markSynced(id, product.id);
+      } catch (_) {
+        connected = false;
+        break;
+      }
+    }
+    await refreshQueue();
+    notifyListeners();
   }
 
   /// Refreshes the number of pending operations.
