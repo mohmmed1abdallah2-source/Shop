@@ -8,9 +8,9 @@
 - Layered architecture diagrams, PostgreSQL ERD, client/server sequence and deployment/hosting guide.
 - OpenAPI v1 schemas and paths for health, app config, Firebase session exchange, branch-scoped product list/save and barcode/scale lookup.
 - Shared Dart DTOs for API response/error metadata, products, units, sessions and app config.
-- HTTP client with Firebase bearer token, request correlation, branch header, idempotency key and bounded retries.
+- HTTP client with Firebase bearer token, request correlation, branch header, idempotency key, bounded retries and ETag/304 handling.
 - PostgreSQL migrations for branches, roles, role permissions, users, devices, idempotency keys, audit logs, categories, products and multiple unit barcodes; default owner/manager/viewer catalog permissions are seeded.
-- Catalog domain ports, validation use cases, in-memory adapter and transactional PostgreSQL adapter.
+- Catalog domain ports, validation use cases, duplicate barcode/PLU detection, in-memory adapter and transactional PostgreSQL adapter.
 - Idempotency reservation is serialized by a transaction lock; same-key/same-payload replays the stored response; same-key/different-payload conflicts.
 - Branch isolation and `catalog.read` / `catalog.write` permission checks on every catalog route.
 - Firebase email/password REST sign-in and refresh; refresh token stored through platform secure storage.
@@ -19,7 +19,7 @@
 - Flutter RTL enterprise dark theme, responsive shell, mobile expandable cards, desktop data table, keyboard-safe form sheet and approved balance vocabulary.
 - Product entry supports piece/pack/carton/sack, multiple barcodes and retail/wholesale prices, weighted PLU and a checked variable-measure EAN-13 parser.
 - Local-first product save; SQLite on Android/Windows; browser local storage on Web; cached catalog snapshots; pending queue replay with the original idempotency key; secure offline session cache limited to seven days.
-- Per-product sync status (pending/synchronized) in the product list.
+- Per-product sync status (pending/synchronized), manual sync-now action and ETag conditional reads for single-page catalogs.
 - CI workflows for Dart tests and Android APK, Web and Windows release builds; generated platform runners are created during CI.
 - Tests authored for catalog validation/idempotency, HTTP auth/envelopes/permissions, API headers/retries, EAN-13 parsing and balance vocabulary.
 
