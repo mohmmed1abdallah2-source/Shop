@@ -12,6 +12,12 @@ class DuplicateBarcode implements Exception {
   const DuplicateBarcode();
 }
 
+/// Domain conflict raised when a scale PLU is already assigned in a branch.
+class DuplicateScalePlu implements Exception {
+  /// Creates a duplicate scale PLU conflict.
+  const DuplicateScalePlu();
+}
+
 /// Domain port for catalog persistence.
 abstract interface class CatalogRepository {
   /// Saves a product scoped to a branch with idempotency.
