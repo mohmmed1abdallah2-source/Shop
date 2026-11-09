@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: Shop ERP API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /health:
+    get:
+      responses:
+        '200': { description: Health }
+  /v1/app-config:
+    get:
+      responses:
+        '200': { description: Public config }
+  /v1/auth/session:
+    post:
+      security: [{ FirebaseBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/RequestId' }]
+      responses:
+        '200': { description: Session }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/catalog/products:
+    get:
+      security: [{ FirebaseBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/RequestId' }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        '200': { description: Cursor page }
+    post:
+      security: [{ FirebaseBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/RequestId' }
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 16 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Product' }
+      responses:
+        '201': { description: Saved }
+        '409': { description: Idempotency conflict }
+components:
+  securitySchemes:
+    FirebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase ID Token }
+  parameters:
+    RequestId:
+      in: header
+      name: X-Request-Id
+      required: true
+      schema: { type: string }
+  responses:
+    Unauthorized: { description: Missing or invalid token }
+  schemas:
+    Product:
+      type: object
+      required: [id, name, sku, kind, units]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        sku: { type: string }
+        kind: { type: string, enum: [numeric, weighted] }
+        scalePluCode: { type: string, nullable: true }
+        units:
+          type: array
+          items:
+            type: object
+            required: [unitName, barcode, retailPrice]
+            properties:
+              unitName: { type: string }
+              barcode: { type: string }
+              retailPrice: { type: number, minimum: 0 }
+              wholesalePrice: { type: number, minimum: 0 }
