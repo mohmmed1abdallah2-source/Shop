@@ -50,7 +50,7 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
   }
 
   /// Validates and saves a product with all configured units.
-  Future<void> _save(BuildContext sheetContext) async {
+  Future<void> _save() async {
     final unitDtos = <ProductUnitBarcodeDto>[];
     final barcodes = <String>{};
     final labels = <String>{};
@@ -71,7 +71,7 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
     final product = ProductDto(id: const Uuid().v4(), name: _name.text.trim(), sku: _sku.text.trim(), kind: _weighted ? 'weighted' : 'numeric', scalePluCode: _weighted ? _scalePlu.text.trim() : null, units: unitDtos);
     final synced = await context.read<AuthAndCatalogProvider>().saveProduct(product);
     if (!mounted) return;
-    Navigator.pop(sheetContext);
+    Navigator.of(context).pop();
     _name.clear();
     _sku.clear();
     _scalePlu.clear();
@@ -99,7 +99,7 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
 
   /// Builds the product catalog and keyboard-safe multi-unit entry sheet.
   @override
-  Widget build(BuildContext context) => Consumer<AuthAndCatalogProvider>(builder: (context, state, child) => Padding(padding: const EdgeInsets.all(16), child: Column(children: [
+  Widget build(BuildContext context) => Consumer<AuthAndCatalogProvider>(builder: (context, state, _) => Padding(padding: const EdgeInsets.all(16), child: Column(children: [
     TextField(controller: _search, onChanged: (_) => setState(() {}), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'بحث بالاسم أو الرمز أو الباركود')),
     const SizedBox(height: 12),
     Expanded(child: _productList(state, MediaQuery.sizeOf(context).width >= 900)),
@@ -123,7 +123,7 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
       }),
       Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: _units.length == _unitOptions.length ? null : () => setSheetState(() { final next = _unitOptions.firstWhere((name) => !_units.any((u) => u.unitName == name), orElse: () => 'قطعة'); _units.add(_UnitEntry(next)); }), icon: const Icon(Icons.add), label: const Text('إضافة وحدة أخرى'))),
       const SizedBox(height: 12),
-      SizedBox(width: double.infinity, child: FilledButton(onPressed: () => _save(ctx), child: const Text('حفظ المنتج'))),
+      SizedBox(width: double.infinity, child: FilledButton(onPressed: _save, child: const Text('حفظ المنتج'))),
     ])))), icon: const Icon(Icons.add), label: const Text('إضافة منتج')),
   ])));
 }
