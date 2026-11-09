@@ -16,9 +16,9 @@
 - Firebase email/password REST sign-in and refresh; refresh token stored through platform secure storage.
 - Server Firebase ID-token verification against Google's rotating Secure Token certificates, RS256 signature, issuer/audience and time claims; fails closed if verification is unavailable.
 - Session exchange maps Firebase UID to active branch, role and permissions in PostgreSQL.
-- Flutter RTL enterprise dark theme, responsive shell, mobile expandable cards, desktop data table, keyboard-safe form sheet and approved balance vocabulary.
+- Flutter RTL enterprise dark theme, responsive shell, mobile expandable cards, desktop data table, keyboard-safe form sheet, F5 sync shortcut and approved balance vocabulary.
 - Product entry supports piece/pack/carton/sack, multiple barcodes and retail/wholesale prices, weighted PLU and a checked variable-measure EAN-13 parser.
-- Local-first product save; SQLite on Android/Windows; browser local storage on Web; cached catalog snapshots; pending queue replay with the original idempotency key; secure offline session cache limited to seven days.
+- Local-first product save; SQLite on Android/Windows (SQLite 3 native assets and persistent Windows app-data path); browser local storage on Web; cached catalog snapshots; pending queue replay with the original idempotency key; secure offline session cache limited to seven days.
 - Per-product sync status (pending/synchronized), manual sync-now action and ETag conditional reads for single-page catalogs.
 - CI workflows for Dart tests and Android APK, Web and Windows release builds; generated platform runners are created during CI.
 - Tests authored for catalog validation/idempotency, HTTP auth/envelopes/permissions, API headers/retries, EAN-13 parsing and balance vocabulary.
@@ -31,6 +31,7 @@
 - PostgreSQL migrations have not been applied to a live database; Firebase sign-in and token verification have not been exercised against an actual project or emulator.
 
 ## Required deployment configuration
+- Flutter toolchain: stable Flutter with Dart SDK 3.12 or newer.
 - Server: `DATABASE_URL`, `FIREBASE_PROJECT_ID`, `CORS_ALLOWED_ORIGINS`, optional `PORT`.
 - Flutter build: `FIREBASE_API_KEY` and `API_BASE_URL` via `--dart-define`.
 - PostgreSQL: apply `20261108_001_init_auth_and_catalog.sql`, then `20261108_002_seed_catalog_permissions.sql`; provision a branch and a user row with the Firebase UID and the `owner` role.
