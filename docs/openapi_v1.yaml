@@ -56,6 +56,10 @@ paths:
       parameters:
         - $ref: '#/components/parameters/RequestId'
         - $ref: '#/components/parameters/BranchId'
+        - in: header
+          name: If-None-Match
+          required: false
+          schema: { type: string }
         - in: query
           name: cursor
           schema: { type: string, format: uuid }
@@ -67,10 +71,18 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Branch-scoped cursor page
+          description: Branch-scoped cursor page with ETag
+          headers:
+            ETag:
+              schema: { type: string }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+        '304':
+          description: Catalog page has not changed since the supplied If-None-Match value
+          headers:
+            ETag:
+              schema: { type: string }
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
