@@ -26,7 +26,7 @@ FROM roles r WHERE r.name = 'owner';
 The Firebase UID must be obtained from the authenticated Firebase user. Never place passwords or service-account private keys in this repository.
 
 ## Flutter configuration
-Use the same Firebase project for client sign-in and server verification:
+Use Flutter stable with Dart SDK 3.12 or newer. The Windows SQLite adapter uses `sqflite_common_ffi` 2.4.x with SQLite 3 native assets and stores its database under the Windows application-support directory. Use the same Firebase project for client sign-in and server verification:
 
 ```sh
 flutter create --platforms=android,web,windows --project-name shop_app .
