@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:core_contracts/core_contracts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Browser storage using persistent local storage through SharedPreferences.
@@ -15,6 +16,8 @@ class PlatformStore {
     await _preferences!.setString('shop.products', jsonEncode(products));
     await _preferences!.setString('shop.sync_queue', jsonEncode(queue));
   }
+  /// Loads all locally cached products.
+  Future<List<ProductDto>> listProducts() async => _read('shop.products').values.map((value) => ProductDto.fromJson(jsonDecode((value as Map)['payload'] as String) as Map<String, dynamic>)).toList();
   /// Returns pending operations ordered by creation time.
   Future<List<Map<String, Object?>>> pendingOperations() async => _read('shop.sync_queue').entries.where((e) => e.value is Map && (e.value as Map)['state'] == 'PENDING').map((e) => <String, Object?>{'id': e.key, ...Map<String, Object?>.from(e.value as Map)}).toList()..sort((a,b) => (a['created_at'] as String).compareTo(b['created_at'] as String));
   /// Marks a queue item as synchronized and updates product state.
