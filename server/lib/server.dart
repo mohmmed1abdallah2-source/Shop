@@ -43,7 +43,7 @@ Middleware _cors() => (inner) => (request) async {
   final origin = request.headers['origin'];
   final originAllowed = origin == null || configured.contains('*') || configured.contains(origin);
   if (!originAllowed) return Response.forbidden('Origin is not allowed.');
-  final headers = <String, String>{'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Id, Idempotency-Key, X-Branch-Id', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Vary': 'Origin'};
+  final headers = <String, String>{'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Id, Idempotency-Key, X-Branch-Id, If-None-Match', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, X-Request-Id', 'Vary': 'Origin'};
   if (origin != null) headers['Access-Control-Allow-Origin'] = configured.contains('*') ? '*' : origin;
   if (request.method == 'OPTIONS') return Response.ok('', headers: headers);
   final response = await inner(request);
