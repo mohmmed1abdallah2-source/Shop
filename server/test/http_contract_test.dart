@@ -51,6 +51,17 @@ void main() {
     expect(body['meta']['requestId'], isNotEmpty);
   });
 
+  test('catalog supports ETag conditional reads', () async {
+    final uri = Uri.parse('http://localhost/v1/catalog/products');
+    final headers = {'Authorization': 'Bearer trusted-test-token', 'X-Branch-Id': '00000000-0000-4000-8000-000000000001'};
+    final first = await handler(Request('GET', uri, headers: headers));
+    expect(first.statusCode, 200);
+    final etag = first.headers['etag'];
+    expect(etag, isNotEmpty);
+    final second = await handler(Request('GET', uri, headers: {...headers, 'If-None-Match': etag!}));
+    expect(second.statusCode, 304);
+  });
+
   test('catalog denies an authenticated user without branch permission', () async {
     final denied = await buildHandler(verifier: _TestTokenVerifier(), permissionRepository: _DenyCatalogAccess());
     final response = await denied(Request('GET', Uri.parse('http://localhost/v1/catalog/products'), headers: {'Authorization': 'Bearer trusted-test-token', 'X-Branch-Id': '00000000-0000-4000-8000-000000000001'}));
