@@ -19,6 +19,10 @@ class PostgresCatalogRepository implements CatalogRepository {
     if (reservation.isEmpty || reservation.first[0] != hash) throw const IdempotencyConflict();
     final prior = reservation.first[1];
     if (prior != null) return ProductDto.fromJson(prior is String ? jsonDecode(prior) as Map<String, dynamic> : prior as Map<String, dynamic>);
+    if (product.scalePluCode != null) {
+      final duplicatePlu = await session.execute(Sql.named('SELECT 1 FROM products WHERE branch_id=@branch AND scale_plu_code=@plu AND id<>@id AND deleted_at IS NULL LIMIT 1'), parameters: {'branch': branch, 'plu': product.scalePluCode, 'id': product.id});
+      if (duplicatePlu.isNotEmpty) throw const DuplicateScalePlu();
+    }
     final saved = await session.execute(Sql.named('INSERT INTO products(id,branch_id,category_id,name,sku,kind,scale_plu_code) VALUES(@id,@branch,@category,@name,@sku,@kind,@plu) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,sku=EXCLUDED.sku,kind=EXCLUDED.kind,scale_plu_code=EXCLUDED.scale_plu_code,updated_at=now(),deleted_at=NULL WHERE products.branch_id=EXCLUDED.branch_id RETURNING id'), parameters: {'id': product.id, 'branch': branch, 'category': product.categoryId, 'name': product.name, 'sku': product.sku, 'kind': product.kind, 'plu': product.scalePluCode});
     if (saved.isEmpty) throw StateError('Product identity belongs to another branch.');
     for (final unit in product.units) {
