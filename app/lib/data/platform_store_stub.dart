@@ -16,6 +16,12 @@ class PlatformStore {
     await _preferences!.setString('shop.products', jsonEncode(products));
     await _preferences!.setString('shop.sync_queue', jsonEncode(queue));
   }
+  /// Caches a server product without creating an outgoing operation.
+  Future<void> cacheProduct(String id, String payload) async {
+    final products = _read('shop.products');
+    products[id] = {'payload': payload, 'sync_state': 'SYNCED'};
+    await _preferences!.setString('shop.products', jsonEncode(products));
+  }
   /// Loads all locally cached products.
   Future<List<ProductDto>> listProducts() async => _read('shop.products').values.map((value) => ProductDto.fromJson(jsonDecode((value as Map)['payload'] as String) as Map<String, dynamic>)).toList();
   /// Returns pending operations ordered by creation time.
