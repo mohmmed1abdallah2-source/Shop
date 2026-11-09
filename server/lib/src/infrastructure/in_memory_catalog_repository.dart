@@ -15,6 +15,9 @@ class InMemoryCatalogRepository implements CatalogRepository {
       if (jsonEncode(prior.toJson()) != jsonEncode(product.toJson())) throw const IdempotencyConflict();
       return prior;
     }
+    for (final entry in _items.entries) {
+      if (entry.key != branch + ':' + product.id && entry.value.units.any((unit) => product.units.any((candidate) => candidate.barcode == unit.barcode))) throw const DuplicateBarcode();
+    }
     _items[branch + ':' + product.id] = product;
     _keys[scoped] = product;
     return product;
