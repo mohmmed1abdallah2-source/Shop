@@ -2,81 +2,223 @@ openapi: 3.0.3
 info:
   title: Shop ERP API
   version: 1.0.0
+  description: Authenticated branch-scoped catalog and session API for Iteration 1.
 servers:
   - url: https://api.example.com
 paths:
   /health:
     get:
+      operationId: health
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
       responses:
-        '200': { description: Health }
+        '200':
+          description: API health status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
   /v1/app-config:
     get:
+      operationId: getAppConfig
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
       responses:
-        '200': { description: Public config }
+        '200':
+          description: Public client configuration
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
   /v1/auth/session:
     post:
-      security: [{ FirebaseBearer: [] }]
-      parameters: [{ $ref: '#/components/parameters/RequestId' }]
+      operationId: createSession
+      security:
+        - FirebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
       responses:
-        '200': { description: Session }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: Provisioned application session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Firebase identity is not provisioned in Shop.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   /v1/catalog/products:
     get:
-      security: [{ FirebaseBearer: [] }]
+      operationId: listProducts
+      security:
+        - FirebaseBearer: []
       parameters:
-        - { $ref: '#/components/parameters/RequestId' }
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/BranchId'
         - in: query
           name: cursor
-          schema: { type: string }
+          schema: { type: string, format: uuid }
         - in: query
           name: limit
           schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+        - in: query
+          name: q
+          schema: { type: string }
       responses:
-        '200': { description: Cursor page }
+        '200':
+          description: Branch-scoped cursor page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
-      security: [{ FirebaseBearer: [] }]
+      operationId: upsertProduct
+      security:
+        - FirebaseBearer: []
       parameters:
-        - { $ref: '#/components/parameters/RequestId' }
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/BranchId'
         - in: header
           name: Idempotency-Key
           required: true
-          schema: { type: string, minLength: 16 }
+          schema: { type: string, minLength: 16, maxLength: 128 }
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/Product' }
       responses:
-        '201': { description: Saved }
-        '409': { description: Idempotency conflict }
+        '201':
+          description: Product saved or idempotent replay returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Idempotency key was reused with a different payload.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /v1/catalog/lookup/{code}:
+    get:
+      operationId: lookupBarcodeOrScaleCode
+      security:
+        - FirebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/BranchId'
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Matching product
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
 components:
   securitySchemes:
-    FirebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase ID Token }
+    FirebaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID Token
   parameters:
     RequestId:
       in: header
       name: X-Request-Id
       required: true
-      schema: { type: string }
+      schema: { type: string, minLength: 1, maxLength: 128 }
+    BranchId:
+      in: header
+      name: X-Branch-Id
+      required: true
+      schema: { type: string, format: uuid }
   responses:
-    Unauthorized: { description: Missing or invalid token }
+    Unauthorized:
+      description: Missing or invalid Firebase ID token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    BadRequest:
+      description: Invalid request headers or parameters
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
+    SuccessEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {}
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: '#/components/schemas/ApiError' }
+    ApiError:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        requestId: { type: string }
+    PageMeta:
+      type: object
+      required: [requestId]
+      properties:
+        page: { type: integer, nullable: true }
+        limit: { type: integer, nullable: true }
+        nextCursor: { type: string, nullable: true }
+        requestId: { type: string }
     Product:
       type: object
       required: [id, name, sku, kind, units]
       properties:
         id: { type: string, format: uuid }
-        name: { type: string }
-        sku: { type: string }
+        name: { type: string, minLength: 1 }
+        sku: { type: string, minLength: 1 }
         kind: { type: string, enum: [numeric, weighted] }
         scalePluCode: { type: string, nullable: true }
+        categoryId: { type: string, format: uuid, nullable: true }
         units:
           type: array
-          items:
-            type: object
-            required: [unitName, barcode, retailPrice]
-            properties:
-              unitName: { type: string }
-              barcode: { type: string }
-              retailPrice: { type: number, minimum: 0 }
-              wholesalePrice: { type: number, minimum: 0 }
+          minItems: 1
+          items: { $ref: '#/components/schemas/ProductUnit' }
+    ProductUnit:
+      type: object
+      required: [unitName, barcode, retailPrice]
+      properties:
+        unitName: { type: string }
+        barcode: { type: string }
+        retailPrice: { type: number, minimum: 0 }
+        wholesalePrice: { type: number, minimum: 0, default: 0 }
+    UserSession:
+      type: object
+      required: [userId, branchId, role, permissions]
+      properties:
+        userId: { type: string, format: uuid }
+        branchId: { type: string, format: uuid }
+        role: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+    AppConfig:
+      type: object
+      required: [apiVersion, minimumClientVersion]
+      properties:
+        apiVersion: { type: string }
+        minimumClientVersion: { type: string }
