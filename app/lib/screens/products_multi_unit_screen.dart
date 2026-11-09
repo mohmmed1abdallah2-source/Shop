@@ -90,10 +90,10 @@ class _ProductsMultiUnitScreenState extends State<ProductsMultiUnitScreen> {
     final query = _search.text.trim().toLowerCase();
     final rows = state.products.where((p) => query.isEmpty || p.name.toLowerCase().contains(query) || p.sku.toLowerCase().contains(query) || p.units.any((u) => u.barcode.toLowerCase().contains(query))).toList();
     if (rows.isEmpty) return const Center(child: Text('لا توجد منتجات مطابقة للبحث.'));
-    if (wide) return SingleChildScrollView(child: DataTable(columns: const [DataColumn(label: Text('المنتج')), DataColumn(label: Text('الرمز')), DataColumn(label: Text('النوع')), DataColumn(label: Text('الوحدات'))], rows: rows.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text(p.sku)), DataCell(Text(p.kind == 'weighted' ? 'موزون' : 'عددي')), DataCell(Text(p.units.length.toString()))])).toList()));
+    if (wide) return SingleChildScrollView(child: DataTable(columns: const [DataColumn(label: Text('المنتج')), DataColumn(label: Text('الرمز')), DataColumn(label: Text('النوع')), DataColumn(label: Text('الوحدات')), DataColumn(label: Text('حالة المزامنة'))], rows: rows.map((p) => DataRow(cells: [DataCell(Text(p.name)), DataCell(Text(p.sku)), DataCell(Text(p.kind == 'weighted' ? 'موزون' : 'عددي')), DataCell(Text(p.units.length.toString())), DataCell(Chip(label: Text(state.pendingProductIds.contains(p.id) ? 'قيد المزامنة' : 'متزامن'), backgroundColor: (state.pendingProductIds.contains(p.id) ? Colors.amber : Colors.green).withOpacity(.18)))])).toList()));
     return ListView.builder(itemCount: rows.length, itemBuilder: (context, index) {
       final product = rows[index];
-      return SmartExpandableCard(title: product.name, subtitle: product.sku, details: [Text('النوع: ' + (product.kind == 'weighted' ? 'موزون' : 'عددي')), ...product.units.map((unit) => Text(unit.unitName + ' — ' + unit.barcode + ' — بيع ' + unit.retailPrice.toString() + ' — جملة ' + unit.wholesalePrice.toString()))]);
+      return SmartExpandableCard(title: product.name, subtitle: product.sku, details: [Align(alignment: Alignment.centerRight, child: Chip(label: Text(state.pendingProductIds.contains(product.id) ? 'قيد المزامنة' : 'متزامن'), backgroundColor: (state.pendingProductIds.contains(product.id) ? Colors.amber : Colors.green).withOpacity(.18))), Text('النوع: ' + (product.kind == 'weighted' ? 'موزون' : 'عددي')), ...product.units.map((unit) => Text(unit.unitName + ' — ' + unit.barcode + ' — بيع ' + unit.retailPrice.toString() + ' — جملة ' + unit.wholesalePrice.toString()))]);
     });
   }
 
