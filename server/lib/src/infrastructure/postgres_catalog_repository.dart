@@ -21,6 +21,10 @@ class PostgresCatalogRepository implements CatalogRepository {
     if (prior != null) return ProductDto.fromJson(prior is String ? jsonDecode(prior) as Map<String, dynamic> : prior as Map<String, dynamic>);
     final saved = await session.execute(Sql.named('INSERT INTO products(id,branch_id,category_id,name,sku,kind,scale_plu_code) VALUES(@id,@branch,@category,@name,@sku,@kind,@plu) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,sku=EXCLUDED.sku,kind=EXCLUDED.kind,scale_plu_code=EXCLUDED.scale_plu_code,updated_at=now(),deleted_at=NULL WHERE products.branch_id=EXCLUDED.branch_id RETURNING id'), parameters: {'id': product.id, 'branch': branch, 'category': product.categoryId, 'name': product.name, 'sku': product.sku, 'kind': product.kind, 'plu': product.scalePluCode});
     if (saved.isEmpty) throw StateError('Product identity belongs to another branch.');
+    for (final unit in product.units) {
+      final duplicate = await session.execute(Sql.named('SELECT 1 FROM product_units_barcodes u JOIN products p ON p.id=u.product_id WHERE u.barcode=@barcode AND u.product_id<>@id AND u.deleted_at IS NULL AND p.deleted_at IS NULL LIMIT 1'), parameters: {'barcode': unit.barcode, 'id': product.id});
+      if (duplicate.isNotEmpty) throw const DuplicateBarcode();
+    }
     await session.execute(Sql.named('DELETE FROM product_units_barcodes WHERE product_id=@id'), parameters: {'id': product.id});
     for (final unit in product.units) {
       await session.execute(Sql.named('INSERT INTO product_units_barcodes(product_id,unit_name,barcode,retail_price,wholesale_price) VALUES(@id,@unit,@barcode,@retail,@wholesale)'), parameters: {'id': product.id, 'unit': unit.unitName, 'barcode': unit.barcode, 'retail': unit.retailPrice, 'wholesale': unit.wholesalePrice});
