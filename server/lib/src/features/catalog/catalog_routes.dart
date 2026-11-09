@@ -48,6 +48,7 @@ class CatalogRoutes {
       return success(request, saved.toJson(), status: 201);
     } on IdempotencyConflict { return failure(request, 409, 'IDEMPOTENCY_CONFLICT', 'مفتاح العملية مستخدم مع بيانات مختلفة.'); }
     on DuplicateBarcode { return failure(request, 409, 'DUPLICATE_BARCODE', 'هذا الباركود مرتبط بمنتج آخر.'); }
+    on DuplicateScalePlu { return failure(request, 409, 'DUPLICATE_SCALE_PLU', 'رمز الميزان مستخدم لمنتج آخر في هذا الفرع.'); }
     on ArgumentError catch (e) { return failure(request, 400, 'VALIDATION_ERROR', e.message.toString()); }
     catch (_) { return failure(request, 500, 'INTERNAL_ERROR', 'تعذر حفظ المنتج.'); }
   }
