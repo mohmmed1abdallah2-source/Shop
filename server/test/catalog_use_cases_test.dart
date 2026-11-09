@@ -9,28 +9,28 @@ void main() {
   test('replays the same product for a repeated idempotency key', () async {
     final repository = InMemoryCatalogRepository();
     final useCase = UpsertProductUseCase(repository);
-    const product = ProductDto(id: 'p1', name: 'ماء', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
+    const product = ProductDto(id: '00000000-0000-4000-8000-000000000001', name: 'ماء', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
     await useCase.call('branch-1', product, 'idempotency-key-0001');
     await useCase.call('branch-1', product, 'idempotency-key-0001');
     expect((await repository.list('branch-1')).length, 1);
   });
   test('rejects reuse of one key with another payload', () async {
     final useCase = UpsertProductUseCase(InMemoryCatalogRepository());
-    const first = ProductDto(id: 'p1', name: 'ماء', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
-    const changed = ProductDto(id: 'p1', name: 'ماء كبير', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
+    const first = ProductDto(id: '00000000-0000-4000-8000-000000000002', name: 'ماء', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
+    const changed = ProductDto(id: '00000000-0000-4000-8000-000000000002', name: 'ماء كبير', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
     await useCase.call('branch-1', first, 'idempotency-key-0002');
     expect(() => useCase.call('branch-1', changed, 'idempotency-key-0002'), throwsA(isA<IdempotencyConflict>()));
   });
   test('isolates product lists by branch and resolves barcode', () async {
     final repository = InMemoryCatalogRepository();
-    const product = ProductDto(id: 'p1', name: 'ماء', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
+    const product = ProductDto(id: '00000000-0000-4000-8000-000000000003', name: 'ماء', sku: 'WATER', kind: 'numeric', units: [ProductUnitBarcodeDto(unitName: 'piece', barcode: '123456', retailPrice: 10)]);
     await repository.upsert('branch-1', product, 'idempotency-key-0003');
     expect(await repository.list('branch-2'), isEmpty);
-    expect((await repository.lookup('branch-1', '123456'))?.id, 'p1');
+    expect((await repository.lookup('branch-1', '123456'))?.id, product.id);
   });
   test('rejects products without a unit', () {
     final useCase = UpsertProductUseCase(InMemoryCatalogRepository());
-    const product = ProductDto(id: 'p2', name: 'صنف', sku: 'SKU', kind: 'numeric', units: []);
+    const product = ProductDto(id: '00000000-0000-4000-8000-000000000004', name: 'صنف', sku: 'SKU', kind: 'numeric', units: []);
     expect(() => useCase.call('branch-1', product, 'idempotency-key-0004'), throwsArgumentError);
   });
 }
