@@ -21,6 +21,15 @@ void main() {
     client.close();
   });
 
+  test('returns ETag metadata for a not-modified response', () async {
+    final transport = MockClient((request) async => http.Response('', 304, headers: {'etag': '"catalog-v1"'}));
+    final client = ApiClient(baseUri: Uri.parse('https://api.example.test'), tokenProvider: () async => 'token', client: transport);
+    final result = await client.send('GET', '/v1/catalog/products');
+    expect(result['_notModified'], isTrue);
+    expect(result['_etag'], '"catalog-v1"');
+    client.close();
+  });
+
   test('reuses idempotency key while retrying a server failure', () async {
     var calls = 0;
     final transport = MockClient((request) async {
