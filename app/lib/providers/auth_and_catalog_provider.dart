@@ -31,17 +31,25 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   /// Active branch UUID from the verified server session.
   String? get branchId => session?['branchId'] as String?;
 
-  /// Restores Firebase session, loads products and replays pending local operations.
+  /// Restores Firebase session, local products and pending synchronization state.
   Future<void> restoreSession() async {
-    final token = await auth.getIdToken();
-    if (token == null) { products = await cache.listProducts(); return; }
     try {
+      final token = await auth.getIdToken();
+      if (token == null) {
+        products = await cache.listProducts();
+        await refreshQueue();
+        notifyListeners();
+        return;
+      }
       final response = await api.send('POST', '/v1/auth/session');
       session = response['data'] as Map<String, dynamic>;
       connected = true;
       await syncPendingOperations();
       await loadProducts();
-    } catch (_) { connected = false; products = await cache.listProducts(); }
+    } catch (_) {
+      connected = false;
+      products = await cache.listProducts();
+    }
     await refreshQueue();
     notifyListeners();
   }
@@ -109,7 +117,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
     }
   }
 
-  /// Loads the current branch catalog from the API, retaining local data on failure.
+  /// Loads the branch catalog, retaining cached products when the API is unavailable.
   Future<void> loadProducts() async {
     final branch = branchId;
     if (branch == null) return;
