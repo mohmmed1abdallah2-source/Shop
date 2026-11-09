@@ -19,7 +19,7 @@ class FirebaseAuthAdapter {
     if (apiKey.isEmpty) throw const FirebaseAuthException('CONFIGURATION_MISSING', 'لم يتم ضبط مفتاح Firebase في إعدادات البناء.');
     final response = await _client.post(Uri.https('identitytoolkit.googleapis.com', '/v1/accounts:signInWithPassword', {'key': apiKey}), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email.trim(), 'password': password, 'returnSecureToken': true})).timeout(const Duration(seconds: 20));
     final json = _decode(response);
-    _acceptTokens(json, 'idToken', 'refreshToken', 'expiresIn');
+    await _acceptTokens(json, 'idToken', 'refreshToken', 'expiresIn');
   }
 
   /// Returns a valid ID token, refreshing it when it is near expiry.
@@ -29,7 +29,7 @@ class FirebaseAuthAdapter {
     if (refreshToken == null || refreshToken.isEmpty) return null;
     final response = await _client.post(Uri.https('securetoken.googleapis.com', '/v1/token', {'key': apiKey}), headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: {'grant_type': 'refresh_token', 'refresh_token': refreshToken}).timeout(const Duration(seconds: 20));
     final json = _decode(response);
-    _acceptTokens(json, 'id_token', 'refresh_token', 'expires_in');
+    await _acceptTokens(json, 'id_token', 'refresh_token', 'expires_in');
     return _idToken;
   }
 
