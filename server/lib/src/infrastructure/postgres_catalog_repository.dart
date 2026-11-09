@@ -3,12 +3,6 @@ import 'package:postgres/postgres.dart';
 import 'package:core_contracts/core_contracts.dart';
 import '../domain/catalog_repository.dart';
 
-/// Raised when an idempotency key is reused with a different payload.
-class IdempotencyConflict implements Exception {
-  /// Creates the conflict.
-  const IdempotencyConflict();
-}
-
 /// PostgreSQL adapter implementing catalog persistence.
 class PostgresCatalogRepository implements CatalogRepository {
   /// Creates the adapter from a shared pool.
