@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:core_contracts/core_contracts.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -21,6 +23,11 @@ class PlatformStore {
     await txn.insert('products', {'id': id, 'payload': payload, 'sync_state': 'PENDING'}, conflictAlgorithm: ConflictAlgorithm.replace);
     await txn.insert('sync_queue', {'id': operationId, 'operation': 'UPSERT_PRODUCT', 'payload': payload, 'state': 'PENDING', 'created_at': createdAt}, conflictAlgorithm: ConflictAlgorithm.abort);
   });
+  /// Loads all locally cached products.
+  Future<List<ProductDto>> listProducts() async {
+    final rows = await _database!.query('products', orderBy: 'id ASC');
+    return rows.map((row) => ProductDto.fromJson(jsonDecode(row['payload'] as String) as Map<String, dynamic>)).toList();
+  }
   /// Returns pending operations ordered by creation time.
   Future<List<Map<String, Object?>>> pendingOperations() async => (await _database!.query('sync_queue', where: 'state = ?', whereArgs: ['PENDING'], orderBy: 'created_at ASC', limit: 100)).map((row) => Map<String, Object?>.from(row)).toList();
   /// Marks a product and queue operation synchronized.
