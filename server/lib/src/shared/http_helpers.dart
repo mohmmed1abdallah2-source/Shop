@@ -5,7 +5,7 @@ import 'package:shelf/shelf.dart';
 Middleware requestContext() => (inner) => (request) async {
   final supplied = request.headers['x-request-id'];
   final valid = supplied != null && supplied.length <= 128 && RegExp(r'^[A-Za-z0-9._:-]+$').hasMatch(supplied);
-  final id = valid ? supplied : DateTime.now().microsecondsSinceEpoch.toString();
+  final id = valid ? supplied! : DateTime.now().microsecondsSinceEpoch.toString();
   final response = await inner(request.change(context: {'requestId': id}));
   return response.change(headers: {'X-Request-Id': id, ...response.headers});
 };
