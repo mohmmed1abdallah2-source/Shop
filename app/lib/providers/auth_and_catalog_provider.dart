@@ -23,6 +23,8 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   Map<String, dynamic>? session;
   /// Products currently visible in the catalog.
   List<ProductDto> products = [];
+  /// Product UUIDs with operations awaiting synchronization.
+  Set<String> pendingProductIds = {};
   /// Whether server connectivity is currently available.
   bool connected = false;
   /// Whether authentication is in progress.
@@ -184,8 +186,15 @@ class AuthAndCatalogProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Refreshes the number of pending operations.
-  Future<void> refreshQueue() async { pending = await cache.pendingCount; notifyListeners(); }
+  /// Refreshes pending count and pending product identifiers from the durable queue.
+  Future<void> refreshQueue() async {
+    final operations = await cache.pendingOperations();
+    pending = operations.length;
+    pendingProductIds = operations.map((operation) {
+      try { return (jsonDecode(operation['payload'] as String) as Map<String, dynamic>)['id'] as String?; } catch (_) { return null; }
+    }).whereType<String>().toSet();
+    notifyListeners();
+  }
 
   /// Stores the current server session with a bounded offline validity window.
   Future<void> _persistSession() async => _secureStorage.write(key: _sessionKey, value: jsonEncode({'session': session, 'cachedAt': DateTime.now().toUtc().toIso8601String()}));
