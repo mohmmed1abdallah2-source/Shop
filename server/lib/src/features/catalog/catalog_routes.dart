@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:core_contracts/core_contracts.dart';
@@ -61,7 +62,10 @@ class CatalogRoutes {
     final limit = int.tryParse(request.url.queryParameters['limit'] ?? '30') ?? 30;
     try {
       final rows = await list.call(branch, cursor: request.url.queryParameters['cursor'], limit: limit, query: request.url.queryParameters['q']);
-      return success(request, rows.map((p) => p.toJson()).toList(), limit: limit, nextCursor: rows.length == limit ? rows.last.id : null);
+      final data = rows.map((p) => p.toJson()).toList();
+      final etag = '"' + sha256.convert(utf8.encode(jsonEncode(data))).toString() + '"';
+      if (request.headers['if-none-match'] == etag) return Response(304, headers: {'ETag': etag});
+      return success(request, data, limit: limit, nextCursor: rows.length == limit ? rows.last.id : null, headers: {'ETag': etag});
     } catch (_) { return failure(request, 400, 'INVALID_QUERY', 'معلمات البحث غير صالحة.'); }
   }
 
