@@ -7,10 +7,19 @@ class UpsertProductUseCase {
   const UpsertProductUseCase(this.repository);
   /// Catalog repository port.
   final CatalogRepository repository;
-  /// Validates and persists the product.
+  /// Validates identifiers, product type, units and prices before persistence.
   Future<ProductDto> call(String branch, ProductDto product, String key) {
+    final uuidPattern = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
+    if (!uuidPattern.hasMatch(product.id) || (product.categoryId != null && !uuidPattern.hasMatch(product.categoryId!))) throw ArgumentError('معرّف المنتج أو التصنيف غير صالح.');
     if (product.name.trim().isEmpty || product.sku.trim().isEmpty || product.units.isEmpty) throw ArgumentError('اسم المنتج والرمز ووحدة بيع مطلوبة.');
-    if (product.units.any((u) => u.barcode.trim().isEmpty || u.retailPrice < 0 || u.wholesalePrice < 0)) throw ArgumentError('بيانات الباركود أو السعر غير صالحة.');
+    if (product.kind != 'numeric' && product.kind != 'weighted') throw ArgumentError('نوع المنتج غير صالح.');
+    if (product.kind == 'weighted' && (product.scalePluCode == null || product.scalePluCode!.trim().isEmpty)) throw ArgumentError('رمز الميزان مطلوب للمنتج الموزون.');
+    final barcodes = <String>{};
+    final unitNames = <String>{};
+    for (final unit in product.units) {
+      if (unit.unitName.trim().isEmpty || unit.barcode.trim().isEmpty || !unitNames.add(unit.unitName) || !barcodes.add(unit.barcode)) throw ArgumentError('اسم الوحدة والباركود مطلوبان ويجب ألا يتكررا.');
+      if (!unit.retailPrice.isFinite || !unit.wholesalePrice.isFinite || unit.retailPrice < 0 || unit.wholesalePrice < 0) throw ArgumentError('أسعار الوحدات غير صالحة.');
+    }
     return repository.upsert(branch, product, key);
   }
 }
