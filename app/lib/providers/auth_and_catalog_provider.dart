@@ -25,6 +25,7 @@ class AuthAndCatalogProvider extends ChangeNotifier {
   List<ProductDto> products = [];
   /// Product UUIDs with operations awaiting synchronization.
   Set<String> pendingProductIds = {};
+  String? _catalogEtag;
   /// Whether server connectivity is currently available.
   bool connected = false;
   /// Whether authentication is in progress.
@@ -153,10 +154,20 @@ class AuthAndCatalogProvider extends ChangeNotifier {
       String? cursor;
       do {
         final query = 'limit=100' + (cursor == null ? '' : '&cursor=' + Uri.encodeQueryComponent(cursor));
-        final response = await api.send('GET', '/v1/catalog/products?' + query, extraHeaders: {'X-Branch-Id': branch});
+        final headers = <String, String>{'X-Branch-Id': branch};
+        if (cursor == null && products.isNotEmpty && products.length < 100 && _catalogEtag != null) headers['If-None-Match'] = _catalogEtag!;
+        final response = await api.send('GET', '/v1/catalog/products?' + query, extraHeaders: headers);
+        if (response['_notModified'] == true) {
+          _catalogEtag = response['_etag'] as String? ?? _catalogEtag;
+          connected = true;
+          notifyListeners();
+          return;
+        }
         loaded.addAll((response['data'] as List<dynamic>).map((item) => ProductDto.fromJson(item as Map<String, dynamic>)));
         final meta = response['meta'] as Map<String, dynamic>?;
         cursor = meta?['nextCursor'] as String?;
+        if (cursor == null && loaded.length < 100) _catalogEtag = response['_etag'] as String?;
+        else _catalogEtag = null;
       } while (cursor != null && loaded.length < 10000);
       products = loaded;
       await Future.wait(products.map(cache.cacheProductSnapshot));
