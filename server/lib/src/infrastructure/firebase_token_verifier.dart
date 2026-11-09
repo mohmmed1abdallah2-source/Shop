@@ -6,7 +6,7 @@ import '../shared/auth_middleware.dart';
 
 /// Verifies Firebase ID tokens using Google's rotating Secure Token certificates.
 class GoogleFirebaseTokenVerifier implements FirebaseTokenVerifier {
-  /// Creates a verifier for the configured Firebase project.
+  /// Creates a verifier for one Firebase project.
   GoogleFirebaseTokenVerifier({required this.projectId, http.Client? client}) : _client = client ?? http.Client();
   /// Firebase project identifier.
   final String projectId;
@@ -23,8 +23,13 @@ class GoogleFirebaseTokenVerifier implements FirebaseTokenVerifier {
       if (parts.length != 3 || token.length > 16384) return null;
       final header = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[0])))) as Map<String, dynamic>;
       if (header['alg'] != 'RS256' || header['kid'] is! String) return null;
+      final keyId = header['kid'] as String;
       await _ensureCertificates();
-      final certificate = _certificates[header['kid'] as String];
+      var certificate = _certificates[keyId];
+      if (certificate == null) {
+        await _ensureCertificates(force: true);
+        certificate = _certificates[keyId];
+      }
       if (certificate == null) return null;
       final verified = JWT.verify(token, RSAPublicKey.cert(certificate));
       final claims = verified.payload as Map<String, dynamic>;
@@ -36,13 +41,11 @@ class GoogleFirebaseTokenVerifier implements FirebaseTokenVerifier {
       if (claims['iat'] is! num || (claims['iat'] as num) > now + 60) return null;
       if (claims['auth_time'] is! num || (claims['auth_time'] as num) > now + 60) return null;
       return VerifiedIdentity(uid);
-    } on JWTException { return null; }
-    on FormatException { return null; }
-    on TypeError { return null; }
+    } catch (_) { return null; }
   }
 
-  Future<void> _ensureCertificates() async {
-    if (_certificates.isNotEmpty && DateTime.now().isBefore(_expiresAt)) return;
+  Future<void> _ensureCertificates({bool force = false}) async {
+    if (!force && _certificates.isNotEmpty && DateTime.now().isBefore(_expiresAt)) return;
     _refreshing ??= _loadCertificates();
     try { await _refreshing; } finally { _refreshing = null; }
   }
