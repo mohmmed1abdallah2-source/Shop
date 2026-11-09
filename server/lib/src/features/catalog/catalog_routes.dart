@@ -3,7 +3,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:core_contracts/core_contracts.dart';
 import '../../application/catalog_use_cases.dart';
-import '../../infrastructure/postgres_catalog_repository.dart';
+import '../../domain/catalog_repository.dart';
 import '../../shared/http_helpers.dart';
 
 /// HTTP routes for catalog operations.
