@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:core_contracts/core_contracts.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -12,7 +13,14 @@ class PlatformStore {
   Future<void> initialize() async {
     if (Platform.isWindows) sqfliteFfiInit();
     final factory = Platform.isWindows ? databaseFactoryFfi : databaseFactory;
-    final directory = await getDatabasesPath();
+    final String directory;
+    if (Platform.isWindows) {
+      final supportDirectory = await getApplicationSupportDirectory();
+      directory = path.join(supportDirectory.path, 'databases');
+      await Directory(directory).create(recursive: true);
+    } else {
+      directory = await getDatabasesPath();
+    }
     _database = await factory.openDatabase(path.join(directory, 'shop_erp.db'), options: OpenDatabaseOptions(version: 1, onCreate: (db, version) async {
       await db.execute('CREATE TABLE products(id TEXT PRIMARY KEY, payload TEXT NOT NULL, sync_state TEXT NOT NULL)');
       await db.execute('CREATE TABLE sync_queue(id TEXT PRIMARY KEY, operation TEXT NOT NULL, payload TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL)');
